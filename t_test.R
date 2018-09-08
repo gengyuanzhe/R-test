@@ -1,26 +1,43 @@
 rm(list=ls())
+library(BSDA)
 
-dataset <- read.csv("data_min_divide_guanxinbing.csv", sep = ',', stringsAsFactors = FALSE)
+filenames <- c("NvsB.csv", "NvsB_n.csv", "NvsCd.csv", "NvsCd_n.csv", "NvsCg.csv", "NvsCg_n.csv","NvsCHd.csv", "NvsCHd_n.csv",
+               "NvsCHg.csv", "NvsCHg_n.csv", "NvsHd.csv", "NvsHd_n.csv", "NvsHg.csv", "NvsHg_n.csv", "NvsM.csv", "NvsM_n.csv")
 
-group_ind1 <- dataset[,2]==0
-group_ind2 <- dataset[,2]==1
-
-p.t <- rep(NA, ncol(dataset)-2)
-p.u <- rep(NA, ncol(dataset)-2)
-for(j in 3:ncol(dataset)){
-  x = dataset[group_ind1, j]
-  y = dataset[group_ind2, j]
-  psd.x = sqrt(sum((x - mean(x))^2)/(length(x)))  
-  psd.y = sqrt(sum((y - mean(y))^2)/(length(y)))
+for(filename in filenames){
+  dataset <- read.csv(paste("data/", filename, sep=""))
   
-  p.t[j-2] <- t.test(x, y)$p.value
-  p.u[j-2] <- z.test(x, sigma.x=psd.x, y, sigma.y=psd.y)$p.value
+  labels <- dataset$Group
+  dataset <- dataset[, c(-1,-2)]
+  
+  class.names <- unique(labels)
+  ind1 <- labels == class.names[1]
+  ind2 <- labels == class.names[2]
+  
+  
+  # p.t   t检验
+  # p.u   wilcox u检验
+  # p.z   z检验
+  p.t <- rep(NA, ncol(dataset))
+  p.u <- rep(NA, ncol(dataset))
+  p.z <- rep(NA, ncol(dataset))
+  for(j in 1:ncol(dataset)){
+    x = dataset[ind1, j]
+    y = dataset[ind2, j]
+    psd.x = sqrt(sum((x - mean(x))^2)/(length(x)))  
+    psd.y = sqrt(sum((y - mean(y))^2)/(length(y)))
+    
+    p.t[j] <- t.test(x, y)$p.value
+    p.u[j] <- wilcox.test(x, y)$p.value
+    p.z[j] <- z.test(x, sigma.x=psd.x, y, sigma.y=psd.y)$p.value
+  }
+  
+  fdr.t<-p.adjust(p.t,method="fdr",length(p.t))
+  fdr.u<-p.adjust(p.u,method="fdr",length(p.u))
+  fdr.z<-p.adjust(p.z,method="fdr",length(p.z)) 
+  
+  write.csv(rbind(colnames(dataset), p.t, fdr.t, p.u, fdr.u), paste("result/", filename, sep=""))
 }
-
-fdr.t<-p.adjust(p.t,method="fdr",length(p.t))
-fdr.u<-p.adjust(p.u,method="fdr",length(p.u)) 
-write.csv(rbind(colnames(dataset)[c(-1,-2)], p.t, fdr.t, p.u, fdr.u), "guanxinbing_result2.csv")
-
 
 # 对于每一列检验数据是否符合正态分布
 # for (j in 3:ncol(dataset)){
